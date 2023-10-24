@@ -1,70 +1,107 @@
-# Домашнее задание к занятию «Kubernetes. Причины появления. Команда kubectl»
+# Домашнее задание к занятию «Базовые объекты K8S»
 
 ### Цель задания
 
-Для экспериментов и валидации ваших решений вам нужно подготовить тестовую среду для работы с Kubernetes. Оптимальное решение — развернуть на рабочей машине или на отдельной виртуальной машине MicroK8S.
+В тестовой среде для работы с Kubernetes, установленной в предыдущем ДЗ, необходимо развернуть Pod с приложением и подключиться к нему со своего локального компьютера. 
 
 ------
 
-### Задание 1. Установка MicroK8S
+### Задание 1. Создать Pod с именем hello-world
 
-1. Установить MicroK8S на локальную машину или на удалённую виртуальную машину.
+1. Создать манифест (yaml-конфигурацию) Pod.
+2. Использовать image - gcr.io/kubernetes-e2e-test-images/echoserver:2.2.  
+- Указанный image не рабочий, использовал ealen/echo-server:0.8.10
 ```
-yura@ubuntu-test:~$ microk8s status
-microk8s is running
-high-availability: no
-  datastore master nodes: 127.0.0.1:19001
-  datastore standby nodes: none
-addons:
-  enabled:
-    dashboard            # (core) The Kubernetes dashboard
-    dns                  # (core) CoreDNS
-    ha-cluster           # (core) Configure high availability on the current node
-    helm                 # (core) Helm - the package manager for Kubernetes
-    helm3                # (core) Helm 3 - the package manager for Kubernetes
-    hostpath-storage     # (core) Storage class; allocates storage from host directory
-    metrics-server       # (core) K8s Metrics Server for API access to service metrics
-    storage              # (core) Alias to hostpath-storage add-on, deprecated
+yura@ubuntu-test:~$ touch simple-pod.yaml
+yura@ubuntu-test:~$ sudo vim simple-pod.yaml
+yura@ubuntu-test:~$ cat simple-pod.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: myapp
+    image: ealen/echo-server:0.8.10
+yura@ubuntu-test:~$ kubectl create -f simple-pod.yaml
+pod/myapp created
 ```
-2. Установить dashboard.
+3. Подключиться локально к Pod с помощью `kubectl port-forward` и вывести значение (curl или в браузере).
 ```
-microk8s enable dashboard
-```
-3. Сгенерировать сертификат для подключения к внешнему ip-адресу.
-```
-yura@ubuntu-test:~$ sudo vim /var/snap/microk8s/current/certs/csr.conf.template
-...
-Добавил строку:
-IP.3 = 130.193.54.232
-...
-Обновил сертификат:
-yura@ubuntu-test:~$ sudo microk8s refresh-certs --cert front-proxy-client.crt
-```
-------
-
-### Задание 2. Установка и настройка локального kubectl
-1. Установить на локальную машину kubectl.
-2. Настроить локально подключение к кластеру.
-```
-Получил данные кластера microk8s на удаленной машине:
-yura@ubuntu-test:~$ sudo microk8s config
-...
-Потом внес параметры cluster, user и context на локальной машине
-yura@Skynet ~ % sudo vim .kube/config
-yura@Skynet ~ % kubectl config get-contexts
-CURRENT   NAME             CLUSTER            AUTHINFO         NAMESPACE
-*         docker-desktop   docker-desktop     docker-desktop
-          microk8s         microk8s-cluster   admin
-yura@Skynet ~ % kubectl config use-context microk8s
-Switched to context "microk8s".
-yura@Skynet ~ % kubectl get nodes
-NAME          STATUS   ROLES    AGE   VERSION
-ubuntu-test   Ready    <none>   75m   v1.28.1
-```
-3. Подключиться к дашборду с помощью port-forward.
-```
-yura@ubuntu-test:~$ kubectl port-forward -n kube-system service/kubernetes-dashboard 10443:443 --address 0.0.0.0
+yura@ubuntu-test:~$ kubectl port-forward pods/myapp :80 --address 0.0.0.0
+Forwarding from 0.0.0.0:40325 -> 80
+Handling connection for 40325
 ```
 <p align="center">
-  <img src="./Screenshots/1.png">
+  <img src="./Screenshots/2.png">
 </p>
+
+------
+
+### Задание 2. Создать Service и подключить его к Pod
+
+1. Создать Pod с именем netology-web.
+```
+yura@ubuntu-test:~$ cat simple-pod.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: netology-web
+  labels:
+    app: netology-web
+spec:
+  containers:
+  - name: netology-web
+    image: ealen/echo-server:0.8.10
+yura@ubuntu-test:~$ kubectl create -f simple-pod.yaml
+pod/netology-web created
+```
+2. Использовать image — gcr.io/kubernetes-e2e-test-images/echoserver:2.2.
+- Указанный image не рабочий, использовал ealen/echo-server:0.8.10
+3. Создать Service с именем netology-svc и подключить к netology-web.
+```
+yura@ubuntu-test:~$ cat netology-svc.yaml 
+apiVersion: v1
+kind: Service
+metadata:
+  name: netology-svc
+spec:
+  selector:
+    app: netology-web
+  ports:
+    - protocol: TCP
+      port: 80
+yura@ubuntu-test:~$ kubectl create -f netology-svc.yaml
+service/netology-svc created
+yura@ubuntu-test:~$ kubectl describe svc netology-svc
+Name:              netology-svc
+Namespace:         default
+Labels:            <none>
+Annotations:       <none>
+Selector:          app=netology-web
+Type:              ClusterIP
+IP Family Policy:  SingleStack
+IP Families:       IPv4
+IP:                10.152.183.206
+IPs:               10.152.183.206
+Port:              <unset>  80/TCP
+TargetPort:        80/TCP
+Endpoints:         10.1.207.173:80
+Session Affinity:  None
+Events:            <none>
+```
+4. Подключиться локально к Service с помощью `kubectl port-forward` и вывести значение (curl или в браузере).
+```
+yura@ubuntu-test:~$ kubectl port-forward svc/netology-svc 8888:80 --address 0.0.0.0
+Forwarding from 0.0.0.0:8888 -> 80
+Handling connection for 8888
+
+yura@Skynet ~ % curl 158.160.84.201:8888
+{"host":{"hostname":"158.160.84.201","ip":"::ffff:127.0.0.1","ips":[]},"http":{"method":"GET","baseUrl":"","originalUrl":"/","protocol":"http"},"request":{"params":{"0":"/"},"query":{},"cookies":{},"body":{},"headers":{"host":"158.160.84.201:8888","user-agent":"curl/8.1.2","accept":"*/*"}},"environment":{"PATH":"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin","HOSTNAME":"netology-web","NODE_VERSION":"18.18.2","YARN_VERSION":"1.22.19","KUBERNETES_PORT_443_TCP_ADDR":"10.152.183.1","KUBERNETES_SERVICE_HOST":"10.152.183.1","KUBERNETES_SERVICE_PORT":"443","KUBERNETES_SERVICE_PORT_HTTPS":"443","KUBERNETES_PORT":"tcp://10.152.183.1:443","KUBERNETES_PORT_443_TCP":"tcp://10.152.183.1:443","KUBERNETES_PORT_443_TCP_PROTO":"tcp","KUBERNETES_PORT_443_TCP_PORT":"443","HOME":"/root"}}
+```
+<p align="center">
+  <img src="./Screenshots/3.png">
+</p>
+------
