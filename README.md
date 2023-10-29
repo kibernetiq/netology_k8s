@@ -1,107 +1,96 @@
-# Домашнее задание к занятию «Базовые объекты K8S»
+# Домашнее задание к занятию «Запуск приложений в K8S»
 
 ### Цель задания
 
-В тестовой среде для работы с Kubernetes, установленной в предыдущем ДЗ, необходимо развернуть Pod с приложением и подключиться к нему со своего локального компьютера. 
+В тестовой среде для работы с Kubernetes, установленной в предыдущем ДЗ, необходимо развернуть Deployment с приложением, состоящим из нескольких контейнеров, и масштабировать его.
 
 ------
 
-### Задание 1. Создать Pod с именем hello-world
+### Задание 1. Создать Deployment и обеспечить доступ к репликам приложения из другого Pod
 
-1. Создать манифест (yaml-конфигурацию) Pod.
-2. Использовать image - gcr.io/kubernetes-e2e-test-images/echoserver:2.2.  
-- Указанный image не рабочий, использовал ealen/echo-server:0.8.10
+1. Создать Deployment приложения, состоящего из двух контейнеров — nginx и multitool. Решить возникшую ошибку.  
+- Решение [deployment.yml#L27-L31](https://github.com/kibernetiq/netology_k8s/blob/kuber-hw-1-3/deployment.yml#L27-L31)
+2. После запуска увеличить количество реплик работающего приложения до 2.
+3. Продемонстрировать количество подов до и после масштабирования.
 ```
-yura@ubuntu-test:~$ touch simple-pod.yaml
-yura@ubuntu-test:~$ sudo vim simple-pod.yaml
-yura@ubuntu-test:~$ cat simple-pod.yaml 
-apiVersion: v1
-kind: Pod
-metadata:
-  name: myapp
-  labels:
-    app: myapp
-spec:
-  containers:
-  - name: myapp
-    image: ealen/echo-server:0.8.10
-yura@ubuntu-test:~$ kubectl create -f simple-pod.yaml
-pod/myapp created
+yura@ubuntu-test:~/kuber-hw-1-3$ kubectl -n netology get pod
+NAME                               READY   STATUS    RESTARTS   AGE
+myapp-deployment-6b5df4bcf-8pktk   2/2     Running   0          82s
+
+yura@ubuntu-test:~/kuber-hw-1-3$ vim deployment.yaml
+
+yura@ubuntu-test:~/kuber-hw-1-3$ kubectl -n netology apply -f deployment.yaml
+deployment.apps/myapp-deployment configured
+
+yura@ubuntu-test:~/kuber-hw-1-3$ kubectl -n netology get pod
+NAME                               READY   STATUS    RESTARTS   AGE
+myapp-deployment-6b5df4bcf-8pktk   2/2     Running   0          22m
+myapp-deployment-6b5df4bcf-965jt   2/2     Running   0          4s
 ```
-3. Подключиться локально к Pod с помощью `kubectl port-forward` и вывести значение (curl или в браузере).
+4. Создать Service, который обеспечит доступ до реплик приложений из п.1.  
+- [service.yml](https://github.com/kibernetiq/netology_k8s/blob/kuber-hw-1-3/service.yml)
+5. Создать отдельный Pod с приложением multitool и убедиться с помощью `curl`, что из пода есть доступ до приложений из п.1.
 ```
-yura@ubuntu-test:~$ kubectl port-forward pods/myapp :80 --address 0.0.0.0
-Forwarding from 0.0.0.0:40325 -> 80
-Handling connection for 40325
+yura@ubuntu-test:~/kuber-hw-1-3$ kubectl -n netology apply -f service.yaml
+service/myapp-service created
+
+yura@ubuntu-test:~/kuber-hw-1-3$ kubectl -n netology get svc
+NAME            TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)           AGE
+myapp-service   ClusterIP   10.152.183.198   <none>        80/TCP,1180/TCP   5s
+
+yura@ubuntu-test:~/kuber-hw-1-3$ kubectl -n netology run mycurlpod --image=curlimages/curl -i --tty --rm -- sh
+~ $ curl myapp-service:80 -I
+HTTP/1.1 200 OK
+Server: nginx/1.14.2
+Date: Mon, 30 Oct 2023 17:29:57 GMT
+Content-Type: text/html
+Content-Length: 612
+Last-Modified: Tue, 04 Dec 2018 14:44:49 GMT
+Connection: keep-alive
+ETag: "5c0692e1-264"
+Accept-Ranges: bytes
+
+~ $ curl myapp-service:1180 -I
+HTTP/1.1 200 OK
+Server: nginx/1.24.0
+Date: Mon, 30 Oct 2023 17:30:05 GMT
+Content-Type: text/html
+Content-Length: 154
+Last-Modified: Mon, 30 Oct 2023 17:21:22 GMT
+Connection: keep-alive
+ETag: "653fe612-9a"
+Accept-Ranges: bytes
 ```
-<p align="center">
-  <img src="./Screenshots/2.png">
-</p>
 
 ------
 
-### Задание 2. Создать Service и подключить его к Pod
+### Задание 2. Создать Deployment и обеспечить старт основного контейнера при выполнении условий
 
-1. Создать Pod с именем netology-web.
+1. Создать Deployment приложения nginx и обеспечить старт контейнера только после того, как будет запущен сервис этого приложения.
+- [deployment_with_init.yml](https://github.com/kibernetiq/netology_k8s/blob/kuber-hw-1-3/deployment_with_init.yml)
+2. Убедиться, что nginx не стартует. В качестве Init-контейнера взять busybox.
 ```
-yura@ubuntu-test:~$ cat simple-pod.yaml 
-apiVersion: v1
-kind: Pod
-metadata:
-  name: netology-web
-  labels:
-    app: netology-web
-spec:
-  containers:
-  - name: netology-web
-    image: ealen/echo-server:0.8.10
-yura@ubuntu-test:~$ kubectl create -f simple-pod.yaml
-pod/netology-web created
-```
-2. Использовать image — gcr.io/kubernetes-e2e-test-images/echoserver:2.2.
-- Указанный image не рабочий, использовал ealen/echo-server:0.8.10
-3. Создать Service с именем netology-svc и подключить к netology-web.
-```
-yura@ubuntu-test:~$ cat netology-svc.yaml 
-apiVersion: v1
-kind: Service
-metadata:
-  name: netology-svc
-spec:
-  selector:
-    app: netology-web
-  ports:
-    - protocol: TCP
-      port: 80
-yura@ubuntu-test:~$ kubectl create -f netology-svc.yaml
-service/netology-svc created
-yura@ubuntu-test:~$ kubectl describe svc netology-svc
-Name:              netology-svc
-Namespace:         default
-Labels:            <none>
-Annotations:       <none>
-Selector:          app=netology-web
-Type:              ClusterIP
-IP Family Policy:  SingleStack
-IP Families:       IPv4
-IP:                10.152.183.206
-IPs:               10.152.183.206
-Port:              <unset>  80/TCP
-TargetPort:        80/TCP
-Endpoints:         10.1.207.173:80
-Session Affinity:  None
-Events:            <none>
-```
-4. Подключиться локально к Service с помощью `kubectl port-forward` и вывести значение (curl или в браузере).
-```
-yura@ubuntu-test:~$ kubectl port-forward svc/netology-svc 8888:80 --address 0.0.0.0
-Forwarding from 0.0.0.0:8888 -> 80
-Handling connection for 8888
+yura@Skynet kubernetes % kubectl -n netology create -f deployment_with_init.yml 
+deployment.apps/nginx-deployment created
 
-yura@Skynet ~ % curl 158.160.84.201:8888
-{"host":{"hostname":"158.160.84.201","ip":"::ffff:127.0.0.1","ips":[]},"http":{"method":"GET","baseUrl":"","originalUrl":"/","protocol":"http"},"request":{"params":{"0":"/"},"query":{},"cookies":{},"body":{},"headers":{"host":"158.160.84.201:8888","user-agent":"curl/8.1.2","accept":"*/*"}},"environment":{"PATH":"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin","HOSTNAME":"netology-web","NODE_VERSION":"18.18.2","YARN_VERSION":"1.22.19","KUBERNETES_PORT_443_TCP_ADDR":"10.152.183.1","KUBERNETES_SERVICE_HOST":"10.152.183.1","KUBERNETES_SERVICE_PORT":"443","KUBERNETES_SERVICE_PORT_HTTPS":"443","KUBERNETES_PORT":"tcp://10.152.183.1:443","KUBERNETES_PORT_443_TCP":"tcp://10.152.183.1:443","KUBERNETES_PORT_443_TCP_PROTO":"tcp","KUBERNETES_PORT_443_TCP_PORT":"443","HOME":"/root"}}
+yura@Skynet kubernetes % kubectl -n netology get pod                       
+NAME                                READY   STATUS     RESTARTS   AGE
+nginx-deployment-747858db59-4xgfd   0/1     Init:0/1   0          5s
 ```
-<p align="center">
-  <img src="./Screenshots/3.png">
-</p>
+3. Создать и запустить Service. Убедиться, что Init запустился.
+- [service_with_init.yml](https://github.com/kibernetiq/netology_k8s/blob/kuber-hw-1-3/service_with_init.yml)
+```
+yura@Skynet kubernetes % kubectl -n netology create -f service_with_init.yml   
+service/nginx-service created
+
+yura@Skynet kubernetes % kubectl -n netology get svc                        
+NAME            TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+nginx-service   ClusterIP   10.152.183.123   <none>        80/TCP    6s
+
+yura@Skynet kubernetes % kubectl -n netology get pod
+NAME                                READY   STATUS    RESTARTS   AGE
+nginx-deployment-747858db59-jztjr   1/1     Running   0          33s
+```
+4. Продемонстрировать состояние пода до и после запуска сервиса.
+
 ------
