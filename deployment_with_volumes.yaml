@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: volume-deployment
+  template:
+    metadata:
+      labels:
+        app: volume-deployment
+    spec:
+      containers:
+      - name: busybox
+        image: busybox
+        command: ['sh', '-c', 'while true; do echo "Hello" >> /output/file.txt; sleep 5; done']
+        volumeMounts: 
+          - name: my-volume
+            mountPath: /output
+      - name: multitool
+        image: wbitt/network-multitool
+        volumeMounts: 
+          - name: my-volume
+            mountPath: /input
+      volumes:
+      - name: my-volume
+        emptyDir: {}

@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: my-daemonset
+  labels:
+    app: node-logging
+spec:
+  selector:
+    matchLabels:
+      name: node-logging
+  template:
+    metadata:
+      labels:
+        name: node-logging
+    spec:
+      containers:
+      - name: multitool
+        image: wbitt/network-multitool
+        volumeMounts: 
+          - name: varlog
+            mountPath: /input
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log/syslog
