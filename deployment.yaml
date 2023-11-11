@@ -6,24 +6,25 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: volume-deployment
+      app: my-deployment
   template:
     metadata:
       labels:
-        app: volume-deployment
+        app: my-deployment
     spec:
       containers:
       - name: busybox
         image: busybox
         command: ['sh', '-c', 'while true; do echo "Hello" >> /output/file.txt; sleep 5; done']
-        volumeMounts: 
+        volumeMounts:
           - name: my-volume
             mountPath: /output
       - name: multitool
         image: wbitt/network-multitool
-        volumeMounts: 
+        volumeMounts:
           - name: my-volume
             mountPath: /input
       volumes:
       - name: my-volume
-        emptyDir: {}
+        persistentVolumeClaim: 
+          claimName: local-pvc
