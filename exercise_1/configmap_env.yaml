@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: my-configmap-env
-data:
-  multitool-container_port: "1180"
-  multitool-container_port_ssl: "11443"
