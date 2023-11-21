@@ -1,0 +1,8 @@
+fullname: frontend-deployment
+replicaCount: 1
+labels: frontend
+image:
+  repository: nginx
+  tag: "1.14.2"
+containerPort: 80
+containerName: nginx
