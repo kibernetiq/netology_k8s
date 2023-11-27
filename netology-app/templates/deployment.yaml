@@ -21,3 +21,10 @@ spec:
             - name: http
               containerPort: {{ .Values.containerPort }}
               protocol: TCP
+          resources:
+            requests:
+              memory: {{ .Values.containerMemory }}
+              cpu: {{ .Values.containerCpu }}
+            limits:
+              memory: {{ .Values.containerMemory }}
+              cpu: {{ .Values.containerCpu }}

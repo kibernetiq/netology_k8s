@@ -1,0 +1,10 @@
+fullname: cache-deployment
+replicaCount: 3
+labels: cache
+image:
+  repository: redis
+  tag: "bookworm"
+containerPort: 6379
+containerName: cache
+containerMemory: "4Gi"
+containerCpu: "1"

@@ -1,8 +1,10 @@
 fullname: backend-deployment
-replicaCount: 1
+replicaCount: 10
 labels: backend
 image:
-  repository: "wbitt/network-multitool"
+  repository: wbitt/network-multitool
   tag: "latest"
 containerPort: 80
-containerName: multitool
+containerName: back
+containerMemory: "600Mi"
+containerCpu: "1"
