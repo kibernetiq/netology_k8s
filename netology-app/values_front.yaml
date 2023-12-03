@@ -1,0 +1,10 @@
+fullname: frontend-deployment
+replicaCount: 1
+labels: frontend
+image:
+  repository: wbitt/network-multitool
+  tag: "latest"
+containerPort: 80
+containerName: front
+containerMemory: "50Mi"
+containerCpu: "200m"
