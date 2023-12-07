@@ -1,66 +1,62 @@
-# Домашнее задание к занятию «Как работает сеть в K8s»
+# Домашнее задание к занятию «Обновление приложений»
 
 ### Цель задания
 
-Настроить сетевую политику доступа к подам.
+Выбрать и настроить стратегию обновления приложения.
 
 -----
 
-### Задание 1. Создать сетевую политику или несколько политик для обеспечения доступа
+### Задание 1. Выбрать стратегию обновления приложения и описать ваш выбор
 
-1. Создать deployment'ы приложений frontend, backend и cache и соответсвующие сервисы.  
-[deployment.yaml](https://github.com/kibernetiq/netology_k8s/blob/kuber-hw-2-7/netology-app/templates/deployment.yaml)  
-[service.yaml](https://github.com/kibernetiq/netology_k8s/blob/kuber-hw-2-7/netology-app/templates/service.yaml)
-2. В качестве образа использовать network-multitool.
-3. Разместить поды в namespace App.
-```
-yura@Skynet kubernetes % kubectl create ns app
-namespace/app created
+1. Имеется приложение, состоящее из нескольких реплик, которое требуется обновить.
+2. Ресурсы, выделенные для приложения, ограничены, и нет возможности их увеличить.
+3. Запас по ресурсам в менее загруженный момент времени составляет 20%.
+4. Обновление мажорное, новые версии приложения не умеют работать со старыми.
+5. Вам нужно объяснить свой выбор стратегии обновления приложения.
+- Ответ: Для такой ситуации наиболее подходящей стратегией обновления может быть стратегия Rolling Update, она позволяет постепенно обновлять реплики приложения, минимизируя простой работы и сохраняя доступность. 
+Использование запаса по ресурсам в менее загруженные периоды можно связать с управлением параметрами maxSurge и maxUnavailable во время обновления приложения.
 
-yura@Skynet kubernetes % helm upgrade --install --atomic netology-app-front netology-app --namespace app -f netology-app/values_front.yaml  
-yura@Skynet kubernetes % helm upgrade --install --atomic netology-app-back netology-app --namespace app -f netology-app/values_back.yaml  
-yura@Skynet kubernetes % helm upgrade --install --atomic netology-app-cache netology-app --namespace app -f netology-app/values_cache.yaml  
+### Задание 2. Обновить приложение
 
-yura@Skynet kubernetes % kubectl -n app get deploy   
-NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
-backend-deployment    1/1     1            1           9m18s
-cache-deployment      1/1     1            1           6m59s
-frontend-deployment   1/1     1            1           11m
+1. Создать deployment приложения с контейнерами nginx и multitool. Версию nginx взять 1.19. Количество реплик — 5.  
+[deployment.yaml]()
+2. Обновить версию nginx в приложении до версии 1.20, сократив время обновления до минимума. Приложение должно быть доступно.
 ```
-4. Создать политики, чтобы обеспечить доступ frontend -> backend -> cache. Другие виды подключений должны быть запрещены.  
-[network_policy_deny_all.yaml](https://github.com/kibernetiq/netology_k8s/blob/kuber-hw-2-7/network_policy_deny_all.yaml)  
-[network_policy_front_to_back.yaml](https://github.com/kibernetiq/netology_k8s/blob/kuber-hw-2-7/network_policy_front_to_back.yaml)  
-[network_policy_back_to_cache.yaml](https://github.com/kibernetiq/netology_k8s/blob/kuber-hw-2-7/network_policy_back_to_cache.yaml)  
-5. Продемонстрировать, что трафик разрешён и запрещён.
-```
-yura@Skynet kubernetes % kubectl exec -it frontend-deployment-6484565655-qh2w2 -- sh
-/ # curl backend-deployment -I
-HTTP/1.1 200 OK
-Server: nginx/1.24.0
-Date: Mon, 04 Dec 2023 15:32:35 GMT
-Content-Type: text/html
-Content-Length: 152
-Last-Modified: Mon, 04 Dec 2023 15:00:12 GMT
-Connection: keep-alive
-ETag: "656de97c-98"
-Accept-Ranges: bytes
+yura@Skynet kubernetes % kubectl -n netology apply -f deployment.yaml
+deployment.apps/myapp-deployment created
 
-/ # curl cache-deployment -I
-curl: (28) Failed to connect to frontend-deployment port 80 after 5001 ms: Timeout was reached
-```
-```
-yura@Skynet kubernetes % kubectl exec -it backend-deployment-566c88c847-zvg4v -- sh
-/ # curl cache-deployment -I
-HTTP/1.1 200 OK
-Server: nginx/1.24.0
-Date: Mon, 04 Dec 2023 15:39:51 GMT
-Content-Type: text/html
-Content-Length: 150
-Last-Modified: Mon, 04 Dec 2023 15:00:06 GMT
-Connection: keep-alive
-ETag: "656de976-96"
-Accept-Ranges: bytes
+yura@Skynet kubernetes % kubectl -n netology apply -f deployment.yaml
+deployment.apps/myapp-deployment configured
 
-/ # curl --connect-timeout 5 frontend-deployment -I
-curl: (28) Failed to connect to frontend-deployment port 80 after 5001 ms: Timeout was reached
+yura@Skynet kubernetes % kubectl get pod -n netology
+NAME                                READY   STATUS    RESTARTS   AGE
+myapp-deployment-7874f6c9f7-2xv4d   2/2     Running   0          31s
+myapp-deployment-7874f6c9f7-ctjtm   2/2     Running   0          31s
+myapp-deployment-7874f6c9f7-5sdzt   2/2     Running   0          18s
+myapp-deployment-7874f6c9f7-9kgz9   2/2     Running   0          21s
+myapp-deployment-7874f6c9f7-gh6xm   2/2     Running   0          15s
+```
+3. Попытаться обновить nginx до версии 1.28, приложение должно оставаться доступным.
+```
+yura@Skynet kubernetes % kubectl -n netology get pod -w
+NAME                                READY   STATUS             RESTARTS   AGE
+myapp-deployment-7874f6c9f7-ctjtm   2/2     Running            0          8m2s
+myapp-deployment-7874f6c9f7-5sdzt   2/2     Running            0          7m49s
+myapp-deployment-7874f6c9f7-9kgz9   2/2     Running            0          7m52s
+myapp-deployment-7874f6c9f7-gh6xm   2/2     Running            0          7m46s
+myapp-deployment-74954d7d85-tmrl6   1/2     ImagePullBackOff   0          20s
+myapp-deployment-74954d7d85-bc78d   1/2     ImagePullBackOff   0          21s
+```
+4. Откатиться после неудачного обновления.
+```
+yura@Skynet kubernetes % kubectl rollout undo deployment myapp-deployment
+deployment.apps/myapp-deployment rolled back
+
+yura@Skynet kubernetes % kubectl -n netology get pod -w                    
+NAME                                READY   STATUS    RESTARTS   AGE
+myapp-deployment-7874f6c9f7-ctjtm   2/2     Running   0          12m
+myapp-deployment-7874f6c9f7-5sdzt   2/2     Running   0          12m
+myapp-deployment-7874f6c9f7-9kgz9   2/2     Running   0          12m
+myapp-deployment-7874f6c9f7-gh6xm   2/2     Running   0          11m
+myapp-deployment-7874f6c9f7-nhflg   2/2     Running   0          5s
 ```
