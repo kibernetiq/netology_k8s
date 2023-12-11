@@ -1,62 +1,72 @@
-# Домашнее задание к занятию «Обновление приложений»
+# Домашнее задание к занятию Troubleshooting
 
 ### Цель задания
 
-Выбрать и настроить стратегию обновления приложения.
+Устранить неисправности при деплое приложения.
 
------
+### Задание. При деплое приложение web-consumer не может подключиться к auth-db. Необходимо это исправить
 
-### Задание 1. Выбрать стратегию обновления приложения и описать ваш выбор
-
-1. Имеется приложение, состоящее из нескольких реплик, которое требуется обновить.
-2. Ресурсы, выделенные для приложения, ограничены, и нет возможности их увеличить.
-3. Запас по ресурсам в менее загруженный момент времени составляет 20%.
-4. Обновление мажорное, новые версии приложения не умеют работать со старыми.
-5. Вам нужно объяснить свой выбор стратегии обновления приложения.
-- Ответ: Для такой ситуации наиболее подходящей стратегией обновления может быть стратегия Rolling Update, она позволяет постепенно обновлять реплики приложения, минимизируя простой работы и сохраняя доступность. 
-Использование запаса по ресурсам в менее загруженные периоды можно связать с управлением параметрами maxSurge и maxUnavailable во время обновления приложения.
-
-### Задание 2. Обновить приложение
-
-1. Создать deployment приложения с контейнерами nginx и multitool. Версию nginx взять 1.19. Количество реплик — 5.  
-[deployment.yaml]()
-2. Обновить версию nginx в приложении до версии 1.20, сократив время обновления до минимума. Приложение должно быть доступно.
+1. Установить приложение по команде:
+```shell
+kubectl apply -f https://raw.githubusercontent.com/netology-code/kuber-homeworks/main/3.5/files/task.yaml
 ```
-yura@Skynet kubernetes % kubectl -n netology apply -f deployment.yaml
-deployment.apps/myapp-deployment created
 
-yura@Skynet kubernetes % kubectl -n netology apply -f deployment.yaml
-deployment.apps/myapp-deployment configured
+```
+yura@Skynet kubernetes % kubectl create ns web
+namespace/web created
+yura@Skynet kubernetes % kubectl create ns data
+namespace/data created
 
-yura@Skynet kubernetes % kubectl get pod -n netology
-NAME                                READY   STATUS    RESTARTS   AGE
-myapp-deployment-7874f6c9f7-2xv4d   2/2     Running   0          31s
-myapp-deployment-7874f6c9f7-ctjtm   2/2     Running   0          31s
-myapp-deployment-7874f6c9f7-5sdzt   2/2     Running   0          18s
-myapp-deployment-7874f6c9f7-9kgz9   2/2     Running   0          21s
-myapp-deployment-7874f6c9f7-gh6xm   2/2     Running   0          15s
-```
-3. Попытаться обновить nginx до версии 1.28, приложение должно оставаться доступным.
-```
-yura@Skynet kubernetes % kubectl -n netology get pod -w
-NAME                                READY   STATUS             RESTARTS   AGE
-myapp-deployment-7874f6c9f7-ctjtm   2/2     Running            0          8m2s
-myapp-deployment-7874f6c9f7-5sdzt   2/2     Running            0          7m49s
-myapp-deployment-7874f6c9f7-9kgz9   2/2     Running            0          7m52s
-myapp-deployment-7874f6c9f7-gh6xm   2/2     Running            0          7m46s
-myapp-deployment-74954d7d85-tmrl6   1/2     ImagePullBackOff   0          20s
-myapp-deployment-74954d7d85-bc78d   1/2     ImagePullBackOff   0          21s
-```
-4. Откатиться после неудачного обновления.
-```
-yura@Skynet kubernetes % kubectl rollout undo deployment myapp-deployment
-deployment.apps/myapp-deployment rolled back
+yura@Skynet kubernetes % kubectl apply -f https://raw.githubusercontent.com/netology-code/kuber-homeworks/main/3.5/files/task.yaml
+deployment.apps/web-consumer created
+deployment.apps/auth-db created
+service/auth-db created
 
-yura@Skynet kubernetes % kubectl -n netology get pod -w                    
-NAME                                READY   STATUS    RESTARTS   AGE
-myapp-deployment-7874f6c9f7-ctjtm   2/2     Running   0          12m
-myapp-deployment-7874f6c9f7-5sdzt   2/2     Running   0          12m
-myapp-deployment-7874f6c9f7-9kgz9   2/2     Running   0          12m
-myapp-deployment-7874f6c9f7-gh6xm   2/2     Running   0          11m
-myapp-deployment-7874f6c9f7-nhflg   2/2     Running   0          5s
+yura@Skynet kubernetes % kubectl -n web get pod
+NAME                            READY   STATUS    RESTARTS   AGE
+web-consumer-5f87765478-v42cg   1/1     Running   0          45s
+web-consumer-5f87765478-94hvr   1/1     Running   0          45s
+yura@Skynet kubernetes % kubectl -n data get pod
+NAME                       READY   STATUS    RESTARTS   AGE
+auth-db-7b5cdbdc77-bkhgw   1/1     Running   0          70s
+yura@Skynet kubernetes % kubectl -n data get svc
+NAME      TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+auth-db   ClusterIP   10.152.183.138   <none>        80/TCP    105s
+```
+2. Выявить проблему и описать.
+- Ответ: Проблема заключается в том, что вызов приложения auth-db идет через service без указания неймспейса, в котором данный сервис развернут.
+3. Исправить проблему, описать, что сделано.
+- Ответ: Нужно изменить curl auth-db на curl auth-db.data
+4. Продемонстрировать, что проблема решена.
+```
+[ root@web-consumer-5f87765478-v42cg:/ ]$ curl auth-db
+curl: (6) Couldn't resolve host 'auth-db'
+```
+```
+[ root@web-consumer-5f87765478-v42cg:/ ]$ curl auth-db.data
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
 ```
